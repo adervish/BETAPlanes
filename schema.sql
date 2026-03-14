@@ -32,6 +32,13 @@ CREATE TABLE IF NOT EXISTS track_points (
   FOREIGN KEY (flight_id) REFERENCES flights(id)
 );
 
+CREATE TABLE IF NOT EXISTS scrape_cache (
+  cache_key TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  html TEXT NOT NULL,
+  fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_flights_tail ON flights(tail_number);
 CREATE INDEX IF NOT EXISTS idx_flights_departure ON flights(departure_time);
 CREATE INDEX IF NOT EXISTS idx_track_points_flight ON track_points(flight_id);

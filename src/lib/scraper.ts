@@ -1,0 +1,300 @@
+import { parseHTML } from "linkedom";
+
+const TAIL_NUMBERS = ["N916LF", "N336MR", "N214BT", "N401NZ", "N709JL"];
+const BASE_URL = "https://www.flightaware.com";
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const CACHE_TTL_SECONDS = 23 * 60 * 60; // 23 hours — re-fetch daily
+
+interface FlightInfo {
+  id: string;
+  tail_number: string;
+  origin_icao: string | null;
+  origin_name: string | null;
+  dest_icao: string | null;
+  dest_name: string | null;
+  departure_time: number | null;
+  arrival_time: number | null;
+  status: string | null;
+  trackLogUrl: string | null;
+}
+
+interface TrackPoint {
+  timestamp: number;
+  latitude: number;
+  longitude: number;
+  altitude_ft: number | null;
+  groundspeed_kts: number | null;
+  heading: number | null;
+}
+
+async function fetchWithCache(
+  db: D1Database,
+  url: string,
+  cacheKey: string
+): Promise<string | null> {
+  // Check cache
+  const cached = await db
+    .prepare(
+      "SELECT html FROM scrape_cache WHERE cache_key = ? AND fetched_at > datetime('now', ?)"
+    )
+    .bind(cacheKey, `-${CACHE_TTL_SECONDS} seconds`)
+    .first<{ html: string }>();
+
+  if (cached) {
+    return cached.html;
+  }
+
+  // Fetch
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT },
+  });
+
+  if (res.status === 429) {
+    console.log(`  [429] Rate limited: ${url}`);
+    return null;
+  }
+
+  if (!res.ok) {
+    console.log(`  [${res.status}] Failed: ${url}`);
+    return null;
+  }
+
+  const html = await res.text();
+
+  // Upsert cache
+  await db
+    .prepare(
+      "INSERT OR REPLACE INTO scrape_cache (cache_key, url, html, fetched_at) VALUES (?, ?, ?, datetime('now'))"
+    )
+    .bind(cacheKey, url, html)
+    .run();
+
+  return html;
+}
+
+function parseBootstrapJSON(html: string): Record<string, unknown> | null {
+  const marker = "var trackpollBootstrap = ";
+  const start = html.indexOf(marker);
+  if (start === -1) return null;
+
+  const jsonStart = start + marker.length;
+  let depth = 0;
+  let i = jsonStart;
+  for (; i < html.length; i++) {
+    if (html[i] === "{") depth++;
+    else if (html[i] === "}") {
+      depth--;
+      if (depth === 0) break;
+    }
+  }
+
+  try {
+    return JSON.parse(html.substring(jsonStart, i + 1));
+  } catch {
+    return null;
+  }
+}
+
+function parseFlightList(html: string, tail: string): FlightInfo[] {
+  const data = parseBootstrapJSON(html);
+  if (!data) return [];
+
+  const flights: FlightInfo[] = [];
+  const flightsObj = data.flights as Record<string, Record<string, unknown>>;
+  for (const key of Object.keys(flightsObj || {})) {
+    const flightData = flightsObj[key];
+    const activityLog = flightData?.activityLog as { flights?: Record<string, unknown>[] };
+    const activityFlights = activityLog?.flights || [];
+    for (const f of activityFlights) {
+      const origin = f.origin as Record<string, unknown> | undefined;
+      const dest = f.destination as Record<string, unknown> | undefined;
+      const takeoff = f.takeoffTimes as Record<string, unknown> | undefined;
+      const landing = f.landingTimes as Record<string, unknown> | undefined;
+      const links = f.links as Record<string, unknown> | undefined;
+
+      flights.push({
+        id: f.flightId as string,
+        tail_number: tail,
+        origin_icao: (origin?.icao as string) || null,
+        origin_name: (origin?.friendlyName as string) || null,
+        dest_icao: (dest?.icao as string) || null,
+        dest_name: (dest?.friendlyName as string) || null,
+        departure_time:
+          (takeoff?.actual as number) || (takeoff?.estimated as number) || null,
+        arrival_time:
+          (landing?.actual as number) || (landing?.estimated as number) || null,
+        status: (f.flightStatus as string) || null,
+        trackLogUrl: (links?.trackLog as string) || null,
+      });
+    }
+  }
+
+  return flights;
+}
+
+function parseTrackLog(html: string): TrackPoint[] {
+  const points: TrackPoint[] = [];
+
+  // Try JSON track data first
+  const data = parseBootstrapJSON(html);
+  if (data) {
+    const flightsObj = data.flights as Record<string, Record<string, unknown>>;
+    for (const key of Object.keys(flightsObj || {})) {
+      const track = flightsObj[key]?.track as Array<Record<string, unknown>>;
+      if (Array.isArray(track) && track.length > 0) {
+        for (const pt of track) {
+          const coord = pt.coord as number[];
+          if (coord && coord.length >= 2) {
+            points.push({
+              timestamp: (pt.timestamp as number) || 0,
+              latitude: coord[1],
+              longitude: coord[0],
+              altitude_ft: pt.alt != null ? (pt.alt as number) * 100 : null,
+              groundspeed_kts: (pt.gs as number) || null,
+              heading: null,
+            });
+          }
+        }
+        if (points.length > 0) return points;
+      }
+    }
+  }
+
+  // Fallback: parse HTML table with linkedom DOM parser
+  const { document } = parseHTML(html);
+  const table = document.getElementById("tracklogTable");
+  if (!table) return points;
+
+  const rows = table.querySelectorAll("tr");
+  for (const row of rows) {
+    const cells = row.querySelectorAll("td");
+    if (cells.length < 7) continue;
+
+    const lat = parseFloat(cells[1].textContent || "");
+    const lon = parseFloat(cells[2].textContent || "");
+    if (isNaN(lat) || isNaN(lon)) continue;
+
+    const kts = parseInt(cells[4].textContent || "") || null;
+    const altText = (cells[6].textContent || "").replace(/,/g, "");
+    const alt = parseInt(altText) || null;
+    const courseText = cells[3].textContent || "";
+    const headingMatch = courseText.match(/(\d+)/);
+    const heading = headingMatch ? parseInt(headingMatch[1]) : null;
+
+    points.push({
+      timestamp: 0,
+      latitude: lat,
+      longitude: lon,
+      altitude_ft: alt,
+      groundspeed_kts: kts,
+      heading,
+    });
+  }
+
+  return points;
+}
+
+async function scrapeTail(db: D1Database, tail: string): Promise<string[]> {
+  const log: string[] = [];
+  log.push(`=== ${tail} ===`);
+
+  // Step 1: Get flight list (always re-fetch the flight list page)
+  const flightsUrl = `${BASE_URL}/live/flight/${tail}`;
+  const flightsCacheKey = `flights:${tail}`;
+  const html = await fetchWithCache(db, flightsUrl, flightsCacheKey);
+  if (!html) {
+    log.push(`  Failed to fetch flight list`);
+    return log;
+  }
+
+  const flights = parseFlightList(html, tail);
+  log.push(`  Found ${flights.length} flights`);
+
+  for (const flight of flights) {
+    const duration =
+      flight.departure_time && flight.arrival_time
+        ? flight.arrival_time - flight.departure_time
+        : null;
+
+    // Insert flight (ignore if exists)
+    await db
+      .prepare(
+        "INSERT OR IGNORE INTO flights (id, tail_number, origin_icao, origin_name, dest_icao, dest_name, departure_time, arrival_time, duration_seconds, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      )
+      .bind(
+        flight.id,
+        tail,
+        flight.origin_icao,
+        flight.origin_name,
+        flight.dest_icao,
+        flight.dest_name,
+        flight.departure_time,
+        flight.arrival_time,
+        duration,
+        flight.status
+      )
+      .run();
+
+    // Check if we already have track points for this flight
+    const existing = await db
+      .prepare("SELECT COUNT(*) as cnt FROM track_points WHERE flight_id = ?")
+      .bind(flight.id)
+      .first<{ cnt: number }>();
+
+    if (existing && existing.cnt > 0) {
+      continue; // Already have track data
+    }
+
+    if (!flight.trackLogUrl) continue;
+
+    // Fetch tracklog
+    const trackCacheKey = `tracklog:${flight.id}`;
+    const trackUrl = `${BASE_URL}${flight.trackLogUrl}`;
+    const trackHtml = await fetchWithCache(db, trackUrl, trackCacheKey);
+    if (!trackHtml) {
+      log.push(`  [skip] ${flight.id}: fetch failed`);
+      continue;
+    }
+
+    const trackPoints = parseTrackLog(trackHtml);
+    log.push(
+      `  ${flight.id}: ${trackPoints.length} pts (${flight.origin_icao} → ${flight.dest_icao})`
+    );
+
+    if (trackPoints.length === 0) continue;
+
+    // Batch insert track points
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < trackPoints.length; i += BATCH_SIZE) {
+      const batch = trackPoints.slice(i, i + BATCH_SIZE);
+      const stmts = batch.map((pt) =>
+        db
+          .prepare(
+            "INSERT INTO track_points (flight_id, timestamp, latitude, longitude, altitude_ft, groundspeed_kts, heading) VALUES (?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            flight.id,
+            pt.timestamp,
+            pt.latitude,
+            pt.longitude,
+            pt.altitude_ft,
+            pt.groundspeed_kts,
+            pt.heading
+          )
+      );
+      await db.batch(stmts);
+    }
+  }
+
+  return log;
+}
+
+export async function runScraper(db: D1Database): Promise<string[]> {
+  const allLogs: string[] = [];
+  for (const tail of TAIL_NUMBERS) {
+    const logs = await scrapeTail(db, tail);
+    allLogs.push(...logs);
+  }
+  return allLogs;
+}

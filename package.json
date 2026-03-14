@@ -19,6 +19,7 @@
     "@types/node": "^25.5.0",
     "cheerio": "^1.2.0",
     "hono": "^4.12.8",
+    "linkedom": "^0.18.12",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "wrangler": "^4.73.0"
