@@ -1,0 +1,26 @@
+{
+  "name": "betaplanes",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "scrape": "tsx scripts/scrape.ts",
+    "scrape:remote": "tsx scripts/scrape.ts --remote",
+    "db:init": "wrangler d1 execute betaplanes-db --local --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute betaplanes-db --remote --file=./schema.sql"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^25.5.0",
+    "cheerio": "^1.2.0",
+    "hono": "^4.12.8",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.73.0"
+  }
+}

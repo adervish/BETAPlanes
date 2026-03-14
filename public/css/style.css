@@ -1,0 +1,234 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+#sidebar {
+  width: 360px;
+  min-width: 360px;
+  height: 100vh;
+  overflow-y: auto;
+  background: #16213e;
+  border-right: 1px solid #0f3460;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 20px;
+  background: #0f3460;
+  border-bottom: 1px solid #533483;
+}
+
+.sidebar-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #e94560;
+}
+
+.sidebar-header .subtitle {
+  font-size: 13px;
+  color: #8899aa;
+  margin-top: 4px;
+}
+
+#plane-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+#map {
+  flex: 1;
+  height: 100vh;
+}
+
+/* Plane card */
+.plane-card {
+  background: #1a1a2e;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border-left: 4px solid;
+  overflow: hidden;
+}
+
+.plane-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.plane-header:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.tail-number {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+
+.flight-count {
+  font-size: 12px;
+  color: #8899aa;
+  margin-right: 10px;
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #333;
+  border-radius: 22px;
+  transition: 0.2s;
+}
+
+.slider:before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.toggle input:checked + .slider {
+  background: #e94560;
+}
+
+.toggle input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+/* Stats row */
+.plane-stats {
+  display: flex;
+  gap: 12px;
+  padding: 0 14px 10px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  font-size: 11px;
+  color: #8899aa;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #ccc;
+}
+
+/* Flight list */
+.flight-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.plane-card.expanded .flight-list {
+  max-height: 2000px;
+}
+
+.flight-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px 8px 36px;
+  font-size: 13px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.flight-item:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.flight-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.flight-route {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flight-meta {
+  font-size: 11px;
+  color: #8899aa;
+  margin-top: 2px;
+}
+
+.flight-toggle {
+  margin-left: 8px;
+}
+
+.flight-toggle .toggle {
+  width: 32px;
+  height: 18px;
+}
+
+.flight-toggle .slider:before {
+  height: 12px;
+  width: 12px;
+}
+
+.flight-toggle .toggle input:checked + .slider:before {
+  transform: translateX(14px);
+}
+
+/* Expand arrow */
+.expand-arrow {
+  font-size: 10px;
+  margin-right: 8px;
+  transition: transform 0.2s;
+  color: #8899aa;
+}
+
+.plane-card.expanded .expand-arrow {
+  transform: rotate(90deg);
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #8899aa;
+}

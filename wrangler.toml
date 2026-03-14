@@ -1,0 +1,11 @@
+name = "betaplanes"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "betaplanes-db"
+database_id = "78253173-052d-4340-8bf9-0e0df9a6f03d"
