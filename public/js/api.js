@@ -15,4 +15,8 @@ const API = {
     const res = await fetch("/api/stats");
     return res.json();
   },
+  async getDailyStats() {
+    const res = await fetch("/api/stats/daily");
+    return res.json();
+  },
 };

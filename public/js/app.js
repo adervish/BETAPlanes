@@ -5,11 +5,13 @@ async function initApp() {
   planeList.innerHTML = '<div class="loading">Loading flight data...</div>';
 
   try {
-    const [planes, stats] = await Promise.all([
+    const [planes, stats, daily] = await Promise.all([
       API.getPlanes(),
       API.getStats(),
+      API.getDailyStats(),
     ]);
 
+    renderDailyChart(daily);
     planeList.innerHTML = "";
 
     for (const plane of planes) {

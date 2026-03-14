@@ -42,4 +42,18 @@ app.get("/", async (c) => {
   return c.json(stats);
 });
 
+app.get("/daily", async (c) => {
+  const result = await c.env.DB.prepare(`
+    SELECT
+      date(departure_time, 'unixepoch') AS day,
+      COALESCE(SUM(duration_seconds), 0) / 3600.0 AS hours
+    FROM flights
+    WHERE departure_time IS NOT NULL
+    GROUP BY day
+    ORDER BY day ASC
+  `).all();
+
+  return c.json(result.results);
+});
+
 export default app;

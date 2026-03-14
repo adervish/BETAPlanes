@@ -8,7 +8,7 @@ const BASE_URL = "https://www.flightaware.com";
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const CACHE_DIR = path.join(__dirname, "cache");
-const TEN_DAYS_SECONDS = 10 * 24 * 60 * 60;
+
 
 const isRemote = process.argv.includes("--remote");
 const noCache = process.argv.includes("--no-cache");
@@ -220,15 +220,7 @@ async function scrapeTail(tail: string) {
   const flights = parseFlightList(html);
   console.log(`  Found ${flights.length} flights total`);
 
-  // Filter to last 10 days
-  const now = Math.floor(Date.now() / 1000);
-  const cutoff = now - TEN_DAYS_SECONDS;
-  const recentFlights = flights.filter(
-    (f) => f.departure_time && f.departure_time >= cutoff
-  );
-  console.log(`  ${recentFlights.length} flights in last 10 days`);
-
-  for (const flight of recentFlights) {
+  for (const flight of flights) {
     const duration =
       flight.departure_time && flight.arrival_time
         ? flight.arrival_time - flight.departure_time
