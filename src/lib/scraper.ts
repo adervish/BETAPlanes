@@ -1,10 +1,9 @@
 import { parseHTML } from "linkedom";
 
-const TAIL_NUMBERS = ["N916LF", "N336MR", "N214BT", "N401NZ", "N709JL"];
+const TAIL_NUMBERS = ["N916LF", "N336MR", "N214BT", "N401NZ", "N709JL", "N521SS", "N27SJ", "N556LU"];
 const BASE_URL = "https://www.flightaware.com";
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-const CACHE_TTL_SECONDS = 23 * 60 * 60; // 23 hours — re-fetch daily
 
 interface FlightInfo {
   id: string;
@@ -33,12 +32,10 @@ async function fetchWithCache(
   url: string,
   cacheKey: string
 ): Promise<string | null> {
-  // Check cache
+  // Check cache — cached pages are kept forever
   const cached = await db
-    .prepare(
-      "SELECT html FROM scrape_cache WHERE cache_key = ? AND fetched_at > datetime('now', ?)"
-    )
-    .bind(cacheKey, `-${CACHE_TTL_SECONDS} seconds`)
+    .prepare("SELECT html FROM scrape_cache WHERE cache_key = ?")
+    .bind(cacheKey)
     .first<{ html: string }>();
 
   if (cached) {
@@ -199,9 +196,13 @@ async function scrapeTail(db: D1Database, tail: string): Promise<string[]> {
   const log: string[] = [];
   log.push(`=== ${tail} ===`);
 
-  // Step 1: Get flight list (always re-fetch the flight list page)
+  // Step 1: Get flight list — always fetch fresh (delete cached version first)
   const flightsUrl = `${BASE_URL}/live/flight/${tail}`;
   const flightsCacheKey = `flights:${tail}`;
+  await db
+    .prepare("DELETE FROM scrape_cache WHERE cache_key = ?")
+    .bind(flightsCacheKey)
+    .run();
   const html = await fetchWithCache(db, flightsUrl, flightsCacheKey);
   if (!html) {
     log.push(`  Failed to fetch flight list`);
@@ -291,10 +292,40 @@ async function scrapeTail(db: D1Database, tail: string): Promise<string[]> {
 }
 
 export async function runScraper(db: D1Database): Promise<string[]> {
+  const startedAt = new Date().toISOString();
   const allLogs: string[] = [];
+  let totalFlights = 0;
+  let totalTracks = 0;
+
   for (const tail of TAIL_NUMBERS) {
     const logs = await scrapeTail(db, tail);
     allLogs.push(...logs);
+    for (const line of logs) {
+      if (line.match(/Found \d+ flights/)) {
+        totalFlights += parseInt(line.match(/Found (\d+)/)?.[1] || "0");
+      }
+      if (line.match(/\d+ pts/)) {
+        totalTracks++;
+      }
+    }
   }
+
+  const finishedAt = new Date().toISOString();
+
+  // Save log
+  await db
+    .prepare(
+      "INSERT INTO scrape_logs (started_at, finished_at, log_text, flights_found, tracks_added) VALUES (?, ?, ?, ?, ?)"
+    )
+    .bind(startedAt, finishedAt, allLogs.join("\n"), totalFlights, totalTracks)
+    .run();
+
+  // Prune to last 30 logs
+  await db
+    .prepare(
+      "DELETE FROM scrape_logs WHERE id NOT IN (SELECT id FROM scrape_logs ORDER BY id DESC LIMIT 30)"
+    )
+    .run();
+
   return allLogs;
 }

@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as cheerio from "cheerio";
 
-const TAIL_NUMBERS = ["N916LF", "N336MR", "N214BT", "N401NZ", "N709JL"];
+const TAIL_NUMBERS = ["N916LF", "N336MR", "N214BT", "N401NZ", "N709JL", "N521SS", "N27SJ", "N556LU"];
 const BASE_URL = "https://www.flightaware.com";
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";

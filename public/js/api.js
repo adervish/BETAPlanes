@@ -1,6 +1,7 @@
 const API = {
-  async getPlanes() {
-    const res = await fetch("/api/planes");
+  async getPlanes(tail) {
+    const params = tail ? "?tail=" + encodeURIComponent(tail) : "";
+    const res = await fetch("/api/planes" + params);
     return res.json();
   },
   async getFlights(tail) {
@@ -11,12 +12,14 @@ const API = {
     const res = await fetch("/api/tracks/" + encodeURIComponent(flightId));
     return res.json();
   },
-  async getStats() {
-    const res = await fetch("/api/stats");
+  async getStats(tail) {
+    const params = tail ? "?tail=" + encodeURIComponent(tail) : "";
+    const res = await fetch("/api/stats" + params);
     return res.json();
   },
-  async getDailyStats() {
-    const res = await fetch("/api/stats/daily");
+  async getDailyStats(tail) {
+    const params = tail ? "?tail=" + encodeURIComponent(tail) : "";
+    const res = await fetch("/api/stats/daily" + params);
     return res.json();
   },
 };
