@@ -24,8 +24,14 @@
   <script src="/js/chart.js"></script>
   <script src="/js/sidebar.js"></script>
   <script src="/js/app.js"></script>
-  <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnGZwlEVW4NZvNdMl9dyEDZG4Iu9jyywo&callback=initApp">
+  <script>
+    fetch("/api/config").then(function(r) { return r.json(); }).then(function(cfg) {
+      var s = document.createElement("script");
+      s.src = "https://maps.googleapis.com/maps/api/js?key=" + cfg.mapsApiKey + "&callback=initApp";
+      s.async = true;
+      s.defer = true;
+      document.body.appendChild(s);
+    });
   </script>
 </body>
 </html>

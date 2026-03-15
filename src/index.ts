@@ -10,6 +10,10 @@ import { runScraper, scrapeFlightUrl } from "./lib/scraper";
 const app = new Hono<{ Bindings: Bindings }>();
 app.use("*", cors());
 
+app.get("/api/config", (c) => {
+  return c.json({ mapsApiKey: c.env.GOOGLE_MAPS_API_KEY });
+});
+
 app.route("/api/planes", planes);
 app.route("/api/flights", flights);
 app.route("/api/tracks", tracks);
