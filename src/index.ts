@@ -5,7 +5,7 @@ import planes from "./routes/planes";
 import flights from "./routes/flights";
 import tracks from "./routes/tracks";
 import stats from "./routes/stats";
-import { runScraper } from "./lib/scraper";
+import { runScraper, scrapeFlightUrl } from "./lib/scraper";
 
 const app = new Hono<{ Bindings: Bindings }>();
 app.use("*", cors());
@@ -17,6 +17,13 @@ app.route("/api/stats", stats);
 
 app.post("/api/scrape", async (c) => {
   const logs = await runScraper(c.env.DB);
+  return c.json({ ok: true, logs });
+});
+
+app.post("/api/scrape/flight", async (c) => {
+  const body = await c.req.json<{ url: string }>();
+  if (!body.url) return c.json({ error: "url is required" }, 400);
+  const logs = await scrapeFlightUrl(c.env.DB, body.url);
   return c.json({ ok: true, logs });
 });
 

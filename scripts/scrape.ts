@@ -70,17 +70,32 @@ function parseFlightList(html: string): FlightInfo[] {
   for (const key of Object.keys(data.flights || {})) {
     const flightData = data.flights[key];
     const activityFlights = flightData?.activityLog?.flights || [];
-    for (const f of activityFlights) {
+
+    if (activityFlights.length > 0) {
+      for (const f of activityFlights) {
+        flights.push({
+          id: f.flightId,
+          origin_icao: f.origin?.icao || null,
+          origin_name: f.origin?.friendlyName || null,
+          dest_icao: f.destination?.icao || null,
+          dest_name: f.destination?.friendlyName || null,
+          departure_time: f.takeoffTimes?.actual || f.takeoffTimes?.estimated || null,
+          arrival_time: f.landingTimes?.actual || f.landingTimes?.estimated || null,
+          status: f.flightStatus || null,
+          trackLogUrl: f.links?.trackLog || null,
+        });
+      }
+    } else if (flightData?.flightId) {
       flights.push({
-        id: f.flightId,
-        origin_icao: f.origin?.icao || null,
-        origin_name: f.origin?.friendlyName || null,
-        dest_icao: f.destination?.icao || null,
-        dest_name: f.destination?.friendlyName || null,
-        departure_time: f.takeoffTimes?.actual || f.takeoffTimes?.estimated || null,
-        arrival_time: f.landingTimes?.actual || f.landingTimes?.estimated || null,
-        status: f.flightStatus || null,
-        trackLogUrl: f.links?.trackLog || null,
+        id: flightData.flightId,
+        origin_icao: flightData.origin?.icao || null,
+        origin_name: flightData.origin?.friendlyName || null,
+        dest_icao: flightData.destination?.icao || null,
+        dest_name: flightData.destination?.friendlyName || null,
+        departure_time: flightData.takeoffTimes?.actual || flightData.takeoffTimes?.estimated || null,
+        arrival_time: flightData.landingTimes?.actual || flightData.landingTimes?.estimated || null,
+        status: flightData.flightStatus || null,
+        trackLogUrl: flightData.links?.trackLog || null,
       });
     }
   }
@@ -218,6 +233,23 @@ async function scrapeTail(tail: string) {
   const html = await fetchWithCache(flightsUrl, cachePath);
 
   const flights = parseFlightList(html);
+
+  // Step 1b: Also fetch the history page for additional flights
+  const historyCachePath = getCachePath(tail, "history.html");
+  try {
+    const historyUrl = `${BASE_URL}/live/flight/${tail}/history`;
+    const historyHtml = await fetchWithCache(historyUrl, historyCachePath);
+    const historyFlights = parseFlightList(historyHtml);
+    const existingIds = new Set(flights.map((f) => f.id));
+    for (const hf of historyFlights) {
+      if (!existingIds.has(hf.id)) {
+        flights.push(hf);
+      }
+    }
+  } catch (e) {
+    console.log(`  [warn] Could not fetch history page: ${e}`);
+  }
+
   console.log(`  Found ${flights.length} flights total`);
 
   for (const flight of flights) {
