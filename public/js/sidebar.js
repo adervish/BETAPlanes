@@ -29,7 +29,7 @@ function formatDateTime(timestamp) {
   });
 }
 
-function renderPlaneCard(plane, planeStat, flights) {
+function renderPlaneCard(plane, stats, flights) {
   const container = document.getElementById("plane-list");
 
   state.planes[plane.tail_number] = {
@@ -43,9 +43,9 @@ function renderPlaneCard(plane, planeStat, flights) {
   card.style.borderLeftColor = plane.color;
   card.dataset.tail = plane.tail_number;
 
-  const totalFlights = planeStat ? planeStat.total_flights : 0;
-  const totalHours = planeStat ? planeStat.total_hours : 0;
-  const uniqueAirports = planeStat ? planeStat.unique_airports : 0;
+  const totalFlights = stats ? stats.total_flights : 0;
+  const totalHours = stats ? stats.total_hours : 0;
+  const uniqueAirports = stats ? stats.unique_airports : 0;
 
   card.innerHTML =
     '<div class="plane-header">' +
@@ -61,7 +61,7 @@ function renderPlaneCard(plane, planeStat, flights) {
     '<div class="plane-stats">' +
       '<span class="stat">Hours: <span class="stat-value">' + totalHours + "</span></span>" +
       '<span class="stat">Airports: <span class="stat-value">' + uniqueAirports + "</span></span>" +
-      '<span class="stat">Last: <span class="stat-value">' + formatDate(planeStat?.last_flight) + "</span></span>" +
+      '<span class="stat">Last: <span class="stat-value">' + formatDate(stats?.last_flight) + "</span></span>" +
     "</div>" +
     '<div class="flight-list">' +
       flights

@@ -20,28 +20,29 @@ async function initApp() {
   }
 
   try {
-    var [planes, stats, daily] = await Promise.all([
+    // Fetch plane list and daily stats in parallel
+    var [planes, daily] = await Promise.all([
       API.getPlanes(targetTail),
-      API.getStats(targetTail),
       API.getDailyStats(targetTail),
     ]);
 
     renderDailyChart(daily);
     planeList.innerHTML = "";
 
-    for (var plane of planes) {
-      var planeStat = stats.find(function (s) {
-        return s.tail_number === plane.tail_number;
-      });
-      var flights = await API.getFlights(plane.tail_number);
+    // Fetch all plane data in parallel
+    var planeDataPromises = planes.map(function (plane) {
+      return API.getPlaneFlights(plane.tail_number);
+    });
+    var allPlaneData = await Promise.all(planeDataPromises);
 
-      renderPlaneCard(plane, planeStat, flights);
+    for (var i = 0; i < planes.length; i++) {
+      var data = allPlaneData[i];
+      renderPlaneCard(data.plane, data.stats, data.flights);
 
-      for (var flight of flights) {
-        var track = await API.getTrack(flight.id);
-        state.loadedTracks[flight.id] = track;
-        if (track.length > 0) {
-          addFlightPolyline(flight.id, track, plane.color, flight);
+      for (var flight of data.flights) {
+        state.loadedTracks[flight.id] = flight.track;
+        if (flight.track.length > 0) {
+          addFlightPolyline(flight.id, flight.track, data.plane.color, flight);
         }
       }
     }
