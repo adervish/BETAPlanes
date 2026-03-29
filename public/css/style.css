@@ -78,7 +78,7 @@ body {
 /* Search */
 #search-box {
   position: fixed;
-  top: 12px;
+  top: 60px;
   left: 370px;
   z-index: 10001;
   width: 160px;
