@@ -1,6 +1,8 @@
 let map;
 const polylines = {};    // flightId -> google.maps.Polyline
 const infoWindow = new (function() { this.ref = null; })(); // lazy init
+var vfrOverlay = null;
+var vfrVisible = false;
 
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
@@ -17,6 +19,31 @@ function initMap() {
     ],
   });
   infoWindow.ref = new google.maps.InfoWindow();
+
+  // FAA VFR Sectional tile overlay
+  vfrOverlay = new google.maps.ImageMapType({
+    getTileUrl: function (coord, zoom) {
+      return "https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/" +
+        zoom + "/" + coord.y + "/" + coord.x;
+    },
+    tileSize: new google.maps.Size(256, 256),
+    maxZoom: 12,
+    minZoom: 5,
+    opacity: 0.5,
+    name: "VFR Sectional",
+  });
+}
+
+function toggleVFR() {
+  if (vfrVisible) {
+    map.overlayMapTypes.clear();
+    vfrVisible = false;
+  } else {
+    map.overlayMapTypes.push(vfrOverlay);
+    vfrVisible = true;
+  }
+  var btn = document.getElementById("vfr-toggle");
+  if (btn) btn.classList.toggle("active", vfrVisible);
 }
 
 function addFlightPolyline(flightId, trackPoints, color, flightInfo) {
@@ -62,7 +89,13 @@ function addFlightPolyline(flightId, trackPoints, color, flightInfo) {
   });
 
   polyline.addListener("mouseout", () => {
-    polyline.setOptions({ strokeOpacity: 0.8, strokeWeight: 3 });
+    if (_highlightedFlight && _highlightedFlight !== flightId) {
+      polyline.setOptions({ strokeOpacity: 0.3, strokeWeight: 3 });
+    } else if (_highlightedFlight === flightId) {
+      polyline.setOptions({ strokeOpacity: 1, strokeWeight: 3 });
+    } else {
+      polyline.setOptions({ strokeOpacity: 0.8, strokeWeight: 3 });
+    }
   });
 
   polylines[flightId] = polyline;
@@ -87,9 +120,34 @@ function setPlaneFlightsVisible(flightIds, visible) {
   }
 }
 
+var _highlightedFlight = null;
+
+function highlightFlight(flightId) {
+  unhighlightFlight();
+  _highlightedFlight = flightId;
+
+  for (var id in polylines) {
+    if (id !== flightId) {
+      polylines[id].setOptions({ strokeOpacity: 0.3 });
+    }
+  }
+  if (polylines[flightId]) {
+    polylines[flightId].setOptions({ strokeOpacity: 1 });
+  }
+}
+
+function unhighlightFlight() {
+  if (!_highlightedFlight) return;
+  for (var id in polylines) {
+    polylines[id].setOptions({ strokeOpacity: 0.8 });
+  }
+  _highlightedFlight = null;
+}
+
 function zoomToFlight(flightId) {
   const poly = polylines[flightId];
   if (!poly) return;
+  highlightFlight(flightId);
   const bounds = new google.maps.LatLngBounds();
   poly.getPath().forEach((pt) => bounds.extend(pt));
   map.fitBounds(bounds, { padding: 80 });

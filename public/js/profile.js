@@ -380,6 +380,7 @@ function togglePlayback(flightId, tail) {
 
 function hideFlightProfile() {
   stopPlayback();
+  unhighlightFlight();
   document.getElementById("flight-profile").style.display = "none";
   if (window._profileMarker) window._profileMarker.setVisible(false);
   profileState = null;
