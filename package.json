@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:ui": "tsx scripts/dev-ui.ts",
     "deploy": "wrangler deploy",
     "scrape": "tsx scripts/scrape.ts",
     "scrape:remote": "tsx scripts/scrape.ts --remote",

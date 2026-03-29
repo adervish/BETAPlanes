@@ -21,20 +21,57 @@ npm install
 npx wrangler login
 ```
 
-## Running Locally with Live Data
+## Option 1: UI-Only Mode (No Cloudflare Access Needed)
 
-The easiest way to work on the UI is to run the dev server with `--remote` so it connects to the production D1 database (all FAA data, flight tracks, etc.):
+The simplest way to work on the UI. Serves static files locally and proxies all API calls to the live production site.
 
 ```bash
+npm run dev:ui
+```
+
+This starts a local server at `http://localhost:3000` that:
+- Serves `public/` files locally — edit and refresh
+- Proxies all `/api/` requests to `https://beta.bentboolean.com`
+- No Cloudflare login required
+- No local database needed
+
+### How it works
+
+All API calls from the frontend go to the local server, which forwards them to production. You get live data (airports, flights, plates, etc.) while editing HTML/CSS/JS locally.
+
+## Option 2: Full Local with Remote Data (Requires Cloudflare Access)
+
+If you need to modify Worker code (`src/`) or test API changes:
+
+```bash
+# One-time: login to Cloudflare
+npx wrangler login
+
+# Run with remote D1 database
 npx wrangler dev --remote
 ```
 
 This starts the app at `http://localhost:8787` using:
 - **Local static files** from `public/` — edit HTML/CSS/JS and refresh to see changes
+- **Local Worker code** from `src/` — edit and auto-rebuilds
 - **Remote D1 database** — all 19K airports, 100K waypoints, 15K frequencies, 24K plates, etc.
 - **Remote secrets** — Google Maps API key
 
-Changes to files in `public/` are reflected immediately on refresh. Changes to Worker code in `src/` trigger an automatic rebuild.
+## Option 3: Fully Local (No Internet Required)
+
+Run everything locally with a local D1 database:
+
+```bash
+# Initialize local database
+npm run db:init
+npx wrangler d1 execute betaplanes-db --local --file=./schema-faa.sql
+
+# Populate with FAA data (takes a while)
+npm run faa:download
+
+# Run locally
+npx wrangler dev
+```
 
 ## Project Structure (UI files)
 
