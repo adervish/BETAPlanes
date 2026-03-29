@@ -87,6 +87,14 @@ function setPlaneFlightsVisible(flightIds, visible) {
   }
 }
 
+function zoomToFlight(flightId) {
+  const poly = polylines[flightId];
+  if (!poly) return;
+  const bounds = new google.maps.LatLngBounds();
+  poly.getPath().forEach((pt) => bounds.extend(pt));
+  map.fitBounds(bounds, { padding: 80 });
+}
+
 function fitMapToPolylines() {
   const bounds = new google.maps.LatLngBounds();
   let hasPoints = false;

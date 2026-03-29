@@ -19,8 +19,16 @@
   </div>
   <div id="map"></div>
   <img id="plane-preview" src="" alt="">
+  <div id="flight-profile">
+    <div id="profile-header">
+      <span id="profile-title"></span>
+      <button id="profile-close" onclick="hideFlightProfile()">&times;</button>
+    </div>
+    <canvas id="profile-canvas"></canvas>
+  </div>
 
   <script src="/js/api.js"></script>
+  <script src="/js/profile.js"></script>
   <script src="/js/map.js"></script>
   <script src="/js/chart.js"></script>
   <script src="/js/sidebar.js"></script>

@@ -83,7 +83,9 @@ function renderPlaneCard(plane, stats, flights) {
           return (
             '<div class="flight-item" data-flight-id="' + f.id + '">' +
               '<div class="flight-info">' +
-                '<div class="flight-route">' + origin + " → " + dest + "</div>" +
+                '<div class="flight-route">' + origin + " → " + dest +
+                  '<button class="play-btn" data-flight="' + f.id + '" onclick="event.stopPropagation(); togglePlayback(\'' + f.id + "', '" + plane.tail_number + "')\">▶</button>" +
+                "</div>" +
                 '<div class="flight-meta">' +
                   formatDateTime(f.departure_time) +
                   " | " +
@@ -103,6 +105,20 @@ function renderPlaneCard(plane, stats, flights) {
         })
         .join("") +
     "</div>";
+
+  // Click on flight item to zoom and show profile
+  card.querySelectorAll(".flight-item").forEach(function (item) {
+    item.querySelector(".flight-info").addEventListener("click", function () {
+      var fid = item.dataset.flightId;
+      zoomToFlight(fid);
+      var track = state.loadedTracks[fid];
+      if (track && track.length > 0) {
+        var flight = flights.find(function (f) { return f.id === fid; });
+        showFlightProfile(track, flight, plane.color);
+      }
+    });
+    item.querySelector(".flight-info").style.cursor = "pointer";
+  });
 
   // Hover preview on thumbnail
   var thumb = card.querySelector(".plane-thumb");

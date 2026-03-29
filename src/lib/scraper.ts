@@ -174,7 +174,7 @@ function parseTrackLog(html: string): TrackPoint[] {
               timestamp: (pt.timestamp as number) || 0,
               latitude: coord[1],
               longitude: coord[0],
-              altitude_ft: pt.alt != null ? (pt.alt as number) * 100 : null,
+              altitude_ft: pt.alt != null ? Math.round(pt.alt as number) : null,
               groundspeed_kts: (pt.gs as number) || null,
               heading: null,
             });
@@ -443,7 +443,7 @@ export async function scrapeFlightUrl(db: D1Database, url: string): Promise<stri
                 timestamp: (pt.timestamp as number) || 0,
                 latitude: coord[1],
                 longitude: coord[0],
-                altitude_ft: pt.alt != null ? (pt.alt as number) * 100 : null,
+                altitude_ft: pt.alt != null ? Math.round(pt.alt as number) : null,
                 groundspeed_kts: (pt.gs as number) || null,
                 heading: null,
               });
