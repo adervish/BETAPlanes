@@ -1,3 +1,13 @@
+function positionPreview(preview, e) {
+  var rect = document.getElementById("sidebar").getBoundingClientRect();
+  preview.style.left = rect.right + 12 + "px";
+  var top = e.clientY - 60;
+  var maxTop = window.innerHeight - preview.offsetHeight - 12;
+  if (top > maxTop) top = maxTop;
+  if (top < 12) top = 12;
+  preview.style.top = top + "px";
+}
+
 const state = {
   planes: {},        // tail -> { visible: bool, flights: [...], color: string }
   flightVisible: {}, // flightId -> bool
@@ -50,7 +60,7 @@ function renderPlaneCard(plane, stats, flights) {
   card.innerHTML =
     '<div class="plane-header">' +
       '<span class="expand-arrow">&#9654;</span>' +
-      '<span class="color-dot" style="background:' + plane.color + '"></span>' +
+      '<img class="plane-thumb" src="/img/' + plane.tail_number + '.jpg" alt="' + plane.tail_number + '">' +
       '<span class="tail-number">' + plane.tail_number + "</span>" +
       '<span class="flight-count">' + totalFlights + " flights</span>" +
       '<label class="toggle" onclick="event.stopPropagation()">' +
@@ -93,6 +103,22 @@ function renderPlaneCard(plane, stats, flights) {
         })
         .join("") +
     "</div>";
+
+  // Hover preview on thumbnail
+  var thumb = card.querySelector(".plane-thumb");
+  thumb.addEventListener("mouseenter", function (e) {
+    var preview = document.getElementById("plane-preview");
+    preview.src = "/img/" + plane.tail_number + "_full.jpg";
+    preview.style.display = "block";
+    positionPreview(preview, e);
+  });
+  thumb.addEventListener("mousemove", function (e) {
+    positionPreview(document.getElementById("plane-preview"), e);
+  });
+  thumb.addEventListener("mouseleave", function () {
+    var preview = document.getElementById("plane-preview");
+    preview.style.display = "none";
+  });
 
   // Toggle expand/collapse on header click
   card.querySelector(".plane-header").addEventListener("click", function () {

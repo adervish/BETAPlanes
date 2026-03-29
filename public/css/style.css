@@ -103,6 +103,16 @@ body {
   flex-shrink: 0;
 }
 
+.plane-thumb {
+  width: 40px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
 .tail-number {
   font-weight: 600;
   font-size: 15px;
@@ -219,6 +229,7 @@ body {
 
 .flight-toggle {
   margin-left: 8px;
+  margin-right: 12px;
 }
 
 .flight-toggle .toggle {
@@ -245,6 +256,19 @@ body {
 
 .plane-card.expanded .expand-arrow {
   transform: rotate(90deg);
+}
+
+/* Hover preview */
+#plane-preview {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  width: 1024px;
+  max-width: calc(100vw - 400px);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  border: 2px solid rgba(255,255,255,0.15);
+  pointer-events: none;
 }
 
 /* Loading */
