@@ -165,14 +165,15 @@ const SOURCES: Source[] = [
   {
     name: "airports",
     service: "US_Airport",
-    outFields: "IDENT,NAME,ICAO_ID,LATITUDE,LONGITUDE,ELEVATION,TYPE_CODE,SERVCITY,STATE,COUNTRY",
+    outFields: "IDENT,NAME,ICAO_ID,ELEVATION,TYPE_CODE,SERVCITY,STATE,COUNTRY",
     d1: {
       table: "faa_airports",
       columns: ["ident", "name", "icao_id", "latitude", "longitude", "elevation", "type_code", "city", "state", "country", "tier", "h3_res3", "h3_res4", "h3_res5"],
       h3Resolutions: [3, 4, 5],
       computeTier: airportTier,
-      mapRow: (p) => [
-        p.IDENT, p.NAME, p.ICAO_ID, p.LATITUDE, p.LONGITUDE,
+      mapRow: (p, geom) => [
+        p.IDENT, p.NAME, p.ICAO_ID,
+        geom?.coordinates?.[1], geom?.coordinates?.[0],
         p.ELEVATION, p.TYPE_CODE, p.SERVCITY, p.STATE, p.COUNTRY,
       ],
     },
@@ -218,9 +219,11 @@ const SOURCES: Source[] = [
       columns: ["oas_number", "latitude", "longitude", "type_code", "agl", "amsl", "lighting", "city", "state", "tier", "h3_res3", "h3_res4", "h3_res5"],
       h3Resolutions: [3, 4, 5],
       computeTier: obstacleTier,
-      mapRow: (p) => [
-        p.OAS_Number, p.Lat_DD, p.Long_DD, p.Type_Code,
-        p.AGL, p.AMSL, p.Lighting, p.City, p.State,
+      mapRow: (p, geom) => [
+        p.OAS_Number,
+        geom?.coordinates?.[1] ?? parseFloat(p.Lat_DD),
+        geom?.coordinates?.[0] ?? parseFloat(p.Long_DD),
+        p.Type_Code, p.AGL, p.AMSL, p.Lighting, p.City, p.State,
       ],
     },
   },
@@ -395,7 +398,7 @@ function runD1(sql: string) {
   }
 }
 
-function runD1File(sqlFile: string) {
+async function runD1File(sqlFile: string) {
   const flag = isRemote ? "--remote" : "--local";
   const fileSize = fs.statSync(sqlFile).size;
 
@@ -404,7 +407,7 @@ function runD1File(sqlFile: string) {
     console.log(`  Large SQL file (${(fileSize / 1024 / 1024).toFixed(1)}MB), splitting into chunks...`);
     const content = fs.readFileSync(sqlFile, "utf-8");
     const statements = content.split(";\n").filter((s) => s.trim());
-    const CHUNK_STMTS = 500;
+    const CHUNK_STMTS = isRemote ? 100 : 500;
     let chunkNum = 0;
 
     for (let i = 0; i < statements.length; i += CHUNK_STMTS) {
@@ -412,11 +415,18 @@ function runD1File(sqlFile: string) {
       const chunkFile = sqlFile.replace(".sql", `-chunk${chunkNum}.sql`);
       fs.writeFileSync(chunkFile, chunk);
       try {
-        execSync(`npx wrangler d1 execute betaplanes-db ${flag} --file=${chunkFile}`, {
-          stdio: "pipe",
-          timeout: 120000,
-          maxBuffer: 50 * 1024 * 1024,
-        });
+        try {
+          execSync(`npx wrangler d1 execute betaplanes-db ${flag} --file=${chunkFile}`, {
+            stdio: "pipe",
+            timeout: 120000,
+            maxBuffer: 50 * 1024 * 1024,
+          });
+        } catch (ce: any) {
+          const stdout = ce.stdout?.toString() || "";
+          if (!stdout.includes("Executed") && !stdout.includes("rows_written")) {
+            throw ce;
+          }
+        }
       } finally {
         try { fs.unlinkSync(chunkFile); } catch {}
       }
@@ -425,15 +435,28 @@ function runD1File(sqlFile: string) {
         const pct = Math.round(((i + CHUNK_STMTS) / statements.length) * 100);
         console.log(`  Chunk ${chunkNum} (${Math.min(pct, 100)}%)...`);
       }
+      // Delay between chunks for remote D1 to avoid rate limits
+      if (isRemote) await sleep(500);
     }
     return;
   }
 
-  execSync(`npx wrangler d1 execute betaplanes-db ${flag} --file=${sqlFile}`, {
-    stdio: "pipe",
-    timeout: 120000,
-    maxBuffer: 50 * 1024 * 1024,
-  });
+  try {
+    execSync(`npx wrangler d1 execute betaplanes-db ${flag} --file=${sqlFile}`, {
+      stdio: "pipe",
+      timeout: 120000,
+      maxBuffer: 50 * 1024 * 1024,
+    });
+  } catch (e: any) {
+    // Wrangler often returns non-zero exit code for remote --file even on success
+    // Check stdout for success indicators
+    const stdout = e.stdout?.toString() || "";
+    if (stdout.includes("Executed") || stdout.includes("rows_written")) {
+      // SQL executed, wrangler just complained
+      return;
+    }
+    throw e;
+  }
 }
 
 async function loadToD1(geojson: any, opts: D1Opts, sourceName: string) {
@@ -484,38 +507,61 @@ async function loadToD1(geojson: any, opts: D1Opts, sourceName: string) {
     lines.push(`INSERT INTO ${opts.table} (${colList}) VALUES ${values};`);
   }
 
-  // Log load
-  lines.push(
-    `INSERT INTO faa_load_log (source, record_count, status) VALUES ('${sourceName}', ${features.length}, 'ok');`
-  );
-
   fs.writeFileSync(tmpFile, lines.join("\n"));
   console.log(`  Executing SQL file (${(fs.statSync(tmpFile).size / 1024).toFixed(0)}KB)...`);
 
   try {
     runD1File(tmpFile);
     console.log(`  ✓ Loaded ${features.length} records into ${opts.table}`);
+    // Log load (non-critical)
+    try {
+      runD1(`INSERT INTO faa_load_log (source, record_count, status) VALUES ('${sourceName}', ${features.length}, 'ok')`);
+    } catch {}
   } catch (e: any) {
     console.error(`  ✗ Failed to load ${opts.table}: ${e.message?.slice(0, 200)}`);
-    // Try smaller batches
-    console.log(`  Retrying with individual batches...`);
-    runD1(`DELETE FROM ${opts.table}`);
+    // Try smaller chunked files
+    console.log(`  Retrying with smaller file chunks...`);
+    const retryFile = `/tmp/faa-retry-${sourceName}-${Date.now()}.sql`;
+    fs.writeFileSync(retryFile, `DELETE FROM ${opts.table};`);
+    runD1File(retryFile);
+    fs.unlinkSync(retryFile);
+
     let loaded = 0;
-    for (let i = 0; i < features.length; i += BATCH_SIZE) {
-      const batch = features.slice(i, i + BATCH_SIZE);
-      const values = batch
-        .map((f: any) => {
-          const row = opts.mapRow(f.properties || {}, f.geometry);
-          return "(" + row.map(escapeSQL).join(",") + ")";
-        })
-        .join(",");
-      try {
-        runD1(`INSERT INTO ${opts.table} (${colList}) VALUES ${values}`);
-        loaded += batch.length;
-      } catch (e2: any) {
-        console.error(`  Batch at offset ${i} failed, skipping`);
+    const RETRY_CHUNK = 200;
+    for (let i = 0; i < features.length; i += RETRY_CHUNK) {
+      const chunk = features.slice(i, i + RETRY_CHUNK);
+      const stmts: string[] = [];
+      for (let j = 0; j < chunk.length; j += BATCH_SIZE) {
+        const batch = chunk.slice(j, j + BATCH_SIZE);
+        const values = batch
+          .map((f: any) => {
+            const row = opts.mapRow(f.properties || {}, f.geometry);
+            const tier = opts.computeTier ? opts.computeTier(f.properties || {}) : 3;
+            row.push(tier);
+            const latIdx = opts.columns.indexOf("latitude");
+            const lngIdx = opts.columns.indexOf("longitude");
+            const lat = latIdx >= 0 ? row[latIdx] as number : null;
+            const lng = lngIdx >= 0 ? row[lngIdx] as number : null;
+            if (opts.h3Resolutions && lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+              for (const res of opts.h3Resolutions) {
+                row.push(computeH3(lat, lng, res));
+              }
+            }
+            return "(" + row.map(escapeSQL).join(",") + ")";
+          })
+          .join(",");
+        stmts.push(`INSERT INTO ${opts.table} (${colList}) VALUES ${values};`);
       }
-      if (i % 500 === 0 && i > 0) console.log(`  ${loaded} / ${features.length}...`);
+      const chunkFile = `/tmp/faa-retry-chunk-${Date.now()}.sql`;
+      fs.writeFileSync(chunkFile, stmts.join("\n"));
+      try {
+        runD1File(chunkFile);
+        loaded += chunk.length;
+      } catch (e2: any) {
+        console.error(`  Chunk at offset ${i} failed, skipping`);
+      }
+      try { fs.unlinkSync(chunkFile); } catch {}
+      if (i % 2000 === 0 && i > 0) console.log(`  ${loaded} / ${features.length}...`);
     }
     console.log(`  Loaded ${loaded} / ${features.length} records`);
   } finally {
