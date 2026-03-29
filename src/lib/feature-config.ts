@@ -48,7 +48,7 @@ export const LAYER_CONFIG: Record<string, LayerConfig> = {
     table: "faa_designated_points",
     label: "Waypoints",
     minH3Res: 5,
-    tierAtRes: { 5: 2 },
+    tierAtRes: { 5: 3 },
     selectColumns: "ident, latitude, longitude, type_code, tier",
     geojsonType: "label",
     style: "waypoint",

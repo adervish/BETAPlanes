@@ -32,17 +32,26 @@ function initMap() {
     tileSize: new google.maps.Size(256, 256),
     maxZoom: 12,
     minZoom: 5,
-    opacity: 0.5,
+    opacity: 1.0,
     name: "VFR Sectional",
   });
 }
 
+var defaultMapStyles = null;
+
 function toggleVFR() {
+  if (!defaultMapStyles) {
+    defaultMapStyles = map.get("styles");
+  }
   if (vfrVisible) {
     map.overlayMapTypes.clear();
+    map.set("styles", defaultMapStyles);
     vfrVisible = false;
   } else {
     map.overlayMapTypes.push(vfrOverlay);
+    // Hide all base map features so only VFR tiles show
+    map.set("styles", [{ elementType: "geometry", stylers: [{ visibility: "off" }] },
+      { elementType: "labels", stylers: [{ visibility: "off" }] }]);
     vfrVisible = true;
   }
   var btn = document.getElementById("vfr-toggle");
