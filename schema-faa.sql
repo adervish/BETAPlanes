@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS faa_airports (
   city TEXT,
   state TEXT,
   country TEXT,
+  mil_code TEXT,
+  iap_exists INTEGER DEFAULT 0,
+  private_use INTEGER DEFAULT 0,
   tier INTEGER NOT NULL DEFAULT 3,
   h3_res3 TEXT,
   h3_res4 TEXT,
@@ -104,3 +107,41 @@ CREATE TABLE IF NOT EXISTS faa_load_log (
   record_count INTEGER,
   status TEXT
 );
+
+-- Approach plates index
+CREATE TABLE IF NOT EXISTS faa_plates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  airport_ident TEXT NOT NULL,
+  icao_ident TEXT,
+  state TEXT,
+  city TEXT,
+  chart_code TEXT NOT NULL,
+  chart_name TEXT NOT NULL,
+  pdf_name TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_faa_plates_airport ON faa_plates(airport_ident);
+CREATE INDEX IF NOT EXISTS idx_faa_plates_icao ON faa_plates(icao_ident);
+CREATE INDEX IF NOT EXISTS idx_faa_plates_code ON faa_plates(chart_code);
+
+-- Airport frequencies (pre-joined from Services + Frequencies)
+CREATE TABLE IF NOT EXISTS faa_frequencies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  airport_ident TEXT NOT NULL,
+  service_type TEXT,
+  freq_tx REAL,
+  freq_rx REAL,
+  remarks TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_faa_freq_airport ON faa_frequencies(airport_ident);
+
+-- Airport runways (pre-joined from Runways + US_Airport)
+CREATE TABLE IF NOT EXISTS faa_runways (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  airport_ident TEXT NOT NULL,
+  designator TEXT,
+  length_ft INTEGER,
+  width_ft INTEGER,
+  surface TEXT,
+  lighting TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_faa_runways_airport ON faa_runways(airport_ident);

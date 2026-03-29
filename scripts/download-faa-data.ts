@@ -165,16 +165,17 @@ const SOURCES: Source[] = [
   {
     name: "airports",
     service: "US_Airport",
-    outFields: "IDENT,NAME,ICAO_ID,ELEVATION,TYPE_CODE,SERVCITY,STATE,COUNTRY",
+    outFields: "IDENT,NAME,ICAO_ID,ELEVATION,TYPE_CODE,SERVCITY,STATE,COUNTRY,MIL_CODE,IAPEXISTS,PRIVATEUSE,OPERSTATUS",
     d1: {
       table: "faa_airports",
-      columns: ["ident", "name", "icao_id", "latitude", "longitude", "elevation", "type_code", "city", "state", "country", "tier", "h3_res3", "h3_res4", "h3_res5"],
+      columns: ["ident", "name", "icao_id", "latitude", "longitude", "elevation", "type_code", "city", "state", "country", "mil_code", "iap_exists", "private_use", "tier", "h3_res3", "h3_res4", "h3_res5"],
       h3Resolutions: [3, 4, 5],
       computeTier: airportTier,
       mapRow: (p, geom) => [
         p.IDENT, p.NAME, p.ICAO_ID,
         geom?.coordinates?.[1], geom?.coordinates?.[0],
         p.ELEVATION, p.TYPE_CODE, p.SERVCITY, p.STATE, p.COUNTRY,
+        p.MIL_CODE, p.IAPEXISTS, p.PRIVATEUSE,
       ],
     },
   },

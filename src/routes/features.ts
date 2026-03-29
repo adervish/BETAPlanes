@@ -1,37 +1,27 @@
 import { Hono } from "hono";
 import type { Bindings } from "../types";
 import { LAYER_CONFIG, zoomToH3Res } from "../lib/feature-config";
-import { latLngToCell, gridDisk } from "h3-js";
+import { polygonToCells } from "h3-js";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Compute H3 cells that cover a bounding box at a given resolution
+// Compute H3 cells that cover a bounding box
 function boundsToH3Cells(
   latMin: number, lngMin: number, latMax: number, lngMax: number, res: number
 ): string[] {
-  // Sample the center and corners, then expand with gridDisk to cover the area
-  const centerLat = (latMin + latMax) / 2;
-  const centerLng = (lngMin + lngMax) / 2;
-
-  const points = [
-    [centerLat, centerLng],
-    [latMin, lngMin], [latMin, lngMax],
-    [latMax, lngMin], [latMax, lngMax],
-    [centerLat, lngMin], [centerLat, lngMax],
-    [latMin, centerLng], [latMax, centerLng],
+  // polygonToCells takes a GeoJSON-style polygon (lng, lat order)
+  const polygon = [
+    [lngMin, latMin],
+    [lngMax, latMin],
+    [lngMax, latMax],
+    [lngMin, latMax],
+    [lngMin, latMin],
   ];
-
-  const cells = new Set<string>();
-  for (const [lat, lng] of points) {
-    try {
-      const cell = latLngToCell(lat, lng, res);
-      // Expand each point by 1 ring to ensure coverage
-      for (const c of gridDisk(cell, 1)) {
-        cells.add(c);
-      }
-    } catch {}
+  try {
+    return polygonToCells(polygon, res, true);
+  } catch {
+    return [];
   }
-  return Array.from(cells);
 }
 
 // GET /api/features?layers=airports,navaids&zoom=10&bounds=latMin,lngMin,latMax,lngMax
@@ -55,6 +45,9 @@ app.get("/", async (c) => {
     ? boundsToH3Cells(latMin, lngMin, latMax, lngMax, h3Res)
     : [];
 
+  // If too many cells (zoomed out too far), fall back to bbox query
+  const useH3 = h3Res !== null && h3Cells.length > 0 && h3Cells.length <= 200;
+
   const results: Record<string, any[]> = {};
 
   for (const name of layerNames) {
@@ -75,14 +68,7 @@ app.get("/", async (c) => {
     let query: string;
     let params: any[] = [];
 
-    if (h3Res === null) {
-      // Close zoom: bounding box query, show everything up to tier threshold
-      query = `SELECT ${config.selectColumns} FROM ${config.table}
-        WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
-        AND tier <= ?
-        LIMIT 5000`;
-      params = [latMin, latMax, lngMin, lngMax, tierThreshold];
-    } else if (h3Cells.length > 0) {
+    if (useH3) {
       const h3Col = `h3_res${h3Res}`;
       const placeholders = h3Cells.map(() => "?").join(",");
       query = `SELECT ${config.selectColumns} FROM ${config.table}
@@ -91,8 +77,12 @@ app.get("/", async (c) => {
         LIMIT 5000`;
       params = [...h3Cells, tierThreshold];
     } else {
-      results[name] = [];
-      continue;
+      // Bounding box fallback
+      query = `SELECT ${config.selectColumns} FROM ${config.table}
+        WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
+        AND tier <= ?
+        LIMIT 5000`;
+      params = [latMin, latMax, lngMin, lngMax, tierThreshold];
     }
 
     try {

@@ -18,6 +18,10 @@
     <div id="plane-list"></div>
   </div>
   <div id="map"></div>
+  <div id="search-box">
+    <input id="search-input" type="text" placeholder="Search airports..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
   <div id="map-controls">
     <button id="vfr-toggle" onclick="toggleVFR()">VFR</button>
     <button id="airspace-toggle" onclick="toggleAirspace()">Airspace</button>
@@ -29,6 +33,17 @@
     <button id="feat-ils" onclick="toggleFeatureLayer('ils')">ILS</button>
   </div>
   <img id="plane-preview" src="" alt="">
+  <div id="plates-overlay" onclick="closePlatesPanel()"></div>
+  <div id="plates-panel">
+    <div id="plates-sidebar">
+      <div id="plates-header">
+        <span id="plates-title"></span>
+        <button id="plates-close" onclick="closePlatesPanel()">&times;</button>
+      </div>
+      <div id="plates-list"></div>
+    </div>
+    <div id="plates-viewer"></div>
+  </div>
   <div id="flight-profile">
     <div id="profile-header">
       <span id="profile-title"></span>
@@ -37,6 +52,7 @@
     <canvas id="profile-canvas"></canvas>
   </div>
 
+  <script src="/js/search.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/profile.js"></script>
   <script src="/js/features.js"></script>

@@ -4,3 +4,4 @@ dist/
 .dev.vars
 scripts/cache/
 public/data/archive/
+data/plates/

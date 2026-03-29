@@ -15,6 +15,11 @@ database_id = "78253173-052d-4340-8bf9-0e0df9a6f03d"
 [triggers]
 crons = ["0 6 * * *"]  # Run daily at 6:00 AM UTC
 
+# Uncomment when R2 is fully enabled on account
+# [[r2_buckets]]
+# bucket_name = "betaplanes-plates"
+# binding = "PLATES_BUCKET"
+
 [[routes]]
 pattern = "beta.bentboolean.com"
 custom_domain = true

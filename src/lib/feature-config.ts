@@ -31,7 +31,7 @@ export const LAYER_CONFIG: Record<string, LayerConfig> = {
     label: "Airports",
     minH3Res: 3,
     tierAtRes: { 3: 1, 4: 2, 5: 3 },
-    selectColumns: "ident, name, icao_id, latitude, longitude, elevation, type_code, tier",
+    selectColumns: "ident, name, icao_id, latitude, longitude, elevation, type_code, mil_code, iap_exists, private_use, tier",
     geojsonType: "point",
     style: "airport",
   },
