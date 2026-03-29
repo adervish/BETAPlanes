@@ -9,7 +9,9 @@
     "scrape": "tsx scripts/scrape.ts",
     "scrape:remote": "tsx scripts/scrape.ts --remote",
     "db:init": "wrangler d1 execute betaplanes-db --local --file=./schema.sql",
-    "db:init:remote": "wrangler d1 execute betaplanes-db --remote --file=./schema.sql"
+    "db:init:remote": "wrangler d1 execute betaplanes-db --remote --file=./schema.sql",
+    "faa:download": "tsx scripts/download-faa-data.ts",
+    "faa:download:remote": "tsx scripts/download-faa-data.ts --remote"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +20,7 @@
   "dependencies": {
     "@types/node": "^25.5.0",
     "cheerio": "^1.2.0",
+    "h3-js": "^4.4.0",
     "hono": "^4.12.8",
     "linkedom": "^0.18.12",
     "tsx": "^4.21.0",

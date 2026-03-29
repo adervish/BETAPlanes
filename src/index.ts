@@ -5,6 +5,7 @@ import planes from "./routes/planes";
 import flights from "./routes/flights";
 import tracks from "./routes/tracks";
 import stats from "./routes/stats";
+import features from "./routes/features";
 import { runScraper, scrapeFlightUrl } from "./lib/scraper";
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -18,6 +19,7 @@ app.route("/api/planes", planes);
 app.route("/api/flights", flights);
 app.route("/api/tracks", tracks);
 app.route("/api/stats", stats);
+app.route("/api/features", features);
 
 app.post("/api/scrape", async (c) => {
   const logs = await runScraper(c.env.DB);

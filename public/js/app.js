@@ -48,6 +48,8 @@ async function initApp() {
     }
 
     fitMapToPolylines();
+    toggleAirspace();
+    initFeatureLayers();
   } catch (err) {
     planeList.innerHTML =
       '<div class="loading">Error loading data: ' + err.message + "</div>";

@@ -18,7 +18,16 @@
     <div id="plane-list"></div>
   </div>
   <div id="map"></div>
-  <button id="vfr-toggle" onclick="toggleVFR()">VFR Sectional</button>
+  <div id="map-controls">
+    <button id="vfr-toggle" onclick="toggleVFR()">VFR</button>
+    <button id="airspace-toggle" onclick="toggleAirspace()">Airspace</button>
+    <span class="control-sep"></span>
+    <button id="feat-airports" onclick="toggleFeatureLayer('airports')">Airports</button>
+    <button id="feat-navaids" onclick="toggleFeatureLayer('navaids')">Navaids</button>
+    <button id="feat-obstacles" onclick="toggleFeatureLayer('obstacles')">Obstacles</button>
+    <button id="feat-waypoints" onclick="toggleFeatureLayer('waypoints')">Waypoints</button>
+    <button id="feat-ils" onclick="toggleFeatureLayer('ils')">ILS</button>
+  </div>
   <img id="plane-preview" src="" alt="">
   <div id="flight-profile">
     <div id="profile-header">
@@ -30,6 +39,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/profile.js"></script>
+  <script src="/js/features.js"></script>
   <script src="/js/map.js"></script>
   <script src="/js/chart.js"></script>
   <script src="/js/sidebar.js"></script>

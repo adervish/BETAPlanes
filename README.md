@@ -73,13 +73,18 @@ BETAPlanes/
     css/style.css
     js/
       app.js              # Init, URL-based plane filtering
-      map.js              # Google Maps, polylines, InfoWindows
+      map.js              # Google Maps, polylines, VFR/airspace overlays
       sidebar.js          # Plane cards, toggles, state
       chart.js            # Daily flight hours bar chart
+      profile.js          # Flight altitude/speed profile, playback animation
       api.js              # Fetch wrapper
+    img/                  # Plane thumbnails and full-size photos
+    data/                 # FAA GeoJSON files (airspace, airways, etc.)
   scripts/
     scrape.ts             # CLI scraper (alternative to Worker scraper)
-  schema.sql              # D1 tables, indexes, seed data
+    download-faa-data.ts  # FAA data downloader (ArcGIS → flat files + D1)
+  schema.sql              # D1 tables, indexes, seed data (flight tracking)
+  schema-faa.sql          # D1 tables for FAA aviation data
   wrangler.toml           # Cloudflare Workers config
 ```
 
@@ -197,6 +202,75 @@ npx wrangler d1 execute betaplanes-db --local --command="DELETE FROM scrape_cach
 3. Add the plane to the `INSERT` statement in `schema.sql` for future DB initializations
 4. Set `show_default` to `1` to show on the main page, or `0` to only show at `/<TAIL_NUMBER>`
 5. Deploy: `npm run deploy`
+
+## FAA Aviation Data
+
+BETAPlanes integrates official FAA aviation data from the [FAA Aeronautical Data Delivery Service (ADDS)](https://adds-faa.opendata.arcgis.com/) to provide airspace context for flight tracks. Data is downloaded from ArcGIS FeatureServer endpoints, simplified, and stored either as static GeoJSON files (for map overlays) or in D1 (for queryable lookups).
+
+### Data Sources
+
+#### Static GeoJSON files (`public/data/`)
+
+These are rendered as map overlays in the browser. Geometries are simplified (reduced coordinate precision, thinned polygon rings) to keep file sizes reasonable.
+
+| File | Source | Description | Features |
+|------|--------|-------------|----------|
+| `airspace.json` | Class_Airspace | Class B and C airspace boundaries (major airport controlled airspace rings) | ~834 |
+| `special-use-airspace.json` | Special_Use_Airspace | MOAs (Military Operations Areas), restricted areas, alert areas, warning areas | ~1,539 |
+| `prohibited-areas.json` | Prohibited_Areas | Prohibited airspace (e.g., P-56 over the White House, Camp David) | ~13 |
+| `airways.json` | ATS_Route | Victor airways (low-altitude) and jet routes (high-altitude) — the "highways in the sky" | ~18,541 |
+| `mtr-segments.json` | MTRSegment | Military Training Routes — low-altitude corridors used for military flight training | ~3,658 |
+| `holding-patterns.json` | HoldingPattern | Published holding pattern locations (racetrack patterns at waypoints) | ~558 |
+| `runways.json` | Runways | Runway polygons for all US airports | ~23,486 |
+
+#### D1 Database Tables
+
+These are loaded into D1 for server-side querying (e.g., look up an airport by ICAO code, find navaids near a flight path).
+
+| Table | Source | Description | Records |
+|-------|--------|-------------|---------|
+| `faa_airports` | US_Airport | All US airports with ICAO/FAA identifiers, lat/lon, elevation, city, state | ~19,615 |
+| `faa_navaids` | NAVAIDSystem | VORs, VOR-DMEs, NDBs, TACANs — radio navigation aids used for instrument flight | ~1,389 |
+| `faa_designated_points` | DesignatedPoint | Waypoints, fixes, and intersections used in flight plans and instrument procedures | ~103,000 |
+| `faa_obstacles` | Digital_Obstacle_File | Towers, buildings, wind turbines, and other tall structures that are aviation hazards | ~500,000+ |
+| `faa_ils` | ILS_Component | Instrument Landing System components (localizers, glide slopes) at airports | ~1,189 |
+| `faa_load_log` | (internal) | Tracks when each FAA data source was last loaded and how many records | — |
+
+### Downloading FAA Data
+
+The `scripts/download-faa-data.ts` script handles all FAA data ingestion:
+
+```bash
+# Download everything to local D1
+npm run faa:download
+
+# Download everything to remote (production) D1
+npm run faa:download:remote
+
+# Download a single source
+npm run faa:download -- --only airports
+npm run faa:download -- --only airspace
+
+# Skip flat file or D1 targets
+npm run faa:download -- --skip-flatfile
+npm run faa:download -- --skip-d1
+```
+
+The script:
+- **Paginates** ArcGIS queries (1000 records per page) to handle large datasets
+- **Simplifies** geometries for flat files (reduced coordinate precision, polygon ring thinning)
+- **Archives** previous versions in `public/data/archive/` with timestamps (gitignored)
+- **Replaces** D1 data on each load (deletes old records, inserts fresh data)
+- **Logs** each load to `faa_load_log` for tracking data freshness
+
+### How FAA Data is Used
+
+- **Airspace overlay**: Toggle Class B/C airspace boundaries on the map to see controlled airspace around major airports. Loaded on page init by default.
+- **VFR Sectional**: Toggle FAA VFR sectional chart tiles (raster) over the map for full aeronautical chart context.
+- **Airport lookups**: The `faa_airports` table enables resolving ICAO codes from flight origins/destinations to full airport names, locations, and elevations.
+- **Navigation context**: Navaids, waypoints, and airways provide the navigation infrastructure that aircraft use for routing. Useful for understanding why a flight took a particular path.
+- **Obstacle awareness**: The obstacle database shows tall structures near flight paths — relevant for low-altitude operations like Beta Technologies' eVTOL flights.
+- **ILS data**: Instrument landing system locations show precision approach capability at airports the fleet uses.
 
 ## Notes
 
